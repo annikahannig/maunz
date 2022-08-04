@@ -6,16 +6,12 @@ use octocrab::{
     models::issues::Issue,
 };
 
-
-fn github_token() -> String {
-    std::env::var("GITHUB_TOKEN")
-        .expect("GITHUB_TOKEN env variable is required")
-}
+mod env;
 
 
 async fn fetch_issues() -> Result<(), octocrab::Error> {
     let octocrab = Octocrab::builder()
-        .personal_token(github_token())
+        .personal_token(env::github_token())
         .build()?;
 
     let mut page = octocrab
@@ -46,7 +42,7 @@ async fn fetch_issues() -> Result<(), octocrab::Error> {
 
 #[tokio::main]
 async fn main() -> octocrab::Result<()> {
-    // fetch_issues().await?;
+    fetch_issues().await?;
 
     Ok(())
 }
