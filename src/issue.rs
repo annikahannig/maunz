@@ -1,14 +1,14 @@
 
 use std::fs;
-use std::io;
 use std::path;
 use std::error::Error;
+use std::collections::HashMap;
 
 use serde::{Serialize, Deserialize};
 use serde_yaml;
 use chrono::{DateTime, Utc};
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Meta {
     pub title: String,
     pub every: String,
@@ -28,9 +28,8 @@ pub struct State {
     pub last_open: DateTime<Utc>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Issue {
-    pub id: String,
     pub meta: Meta,
     pub text: String,
 }
@@ -45,12 +44,11 @@ fn id_from_filename(filename: &String) -> String {
 
 impl Issue {
 
-    fn parse(id: String, content: String) -> Result<Issue, Box<dyn Error>> { 
+    fn parse(content: String) -> Result<Issue, Box<dyn Error>> { 
         let parts: Vec<&str> = content.splitn(2, "---").collect();
         let meta = Meta::parse(parts[0])?;
 
         let issue = Issue{
-            id: id,
             meta: meta,
             text: parts[1].to_owned(),
         };
@@ -58,13 +56,27 @@ impl Issue {
         Ok(issue)
     }
         
-    fn from_file(filename: String) -> Result<Issue, Box<dyn Error>> {
-        let id = id_from_filename(&filename);
+    fn from_file(filename: &String) -> Result<Issue, Box<dyn Error>> {
         let content = fs::read_to_string(filename)?;
-        Issue::parse(id, content)
+        Issue::parse(content)
     }
 }
 
+type Repo = HashMap<String, Issue>;
+
+pub fn load_path(path: String) -> Result<Repo, Box<dyn Error>> {
+    let mut issues: Repo = HashMap::new();
+    let paths = fs::read_dir(&path::Path::new(&path))?;
+    
+    for entry in paths {
+        let path = entry.unwrap().path().to_str().unwrap().to_owned();
+        let issue = Issue::from_file(&path)?;
+        let id = id_from_filename(&path);
+        issues.insert(id, issue.clone());
+    }
+
+    Ok(issues)
+}
 
 #[cfg(test)]
 mod tests {
@@ -83,7 +95,6 @@ mod tests {
 
     #[test]
     fn parse_issue() {
-        let id = String::from("my_id.md");
         let data = String::from("
             title: test title
             every: 10d
@@ -91,7 +102,7 @@ mod tests {
             - [ ] do things
             - [ ] do more
         ");
-        let issue = Issue::parse(id, data).unwrap();
+        let issue = Issue::parse(data).unwrap();
         assert_eq!(issue.meta.title, "test title");
         println!("{}", issue.text);
     }
@@ -99,8 +110,7 @@ mod tests {
     #[test]
     fn from_file() {
         let filename = String::from("./example/clean_table.md");
-        let issue = Issue::from_file(filename).unwrap();
-        assert_eq!(issue.id, "clean_table.md");
+        let issue = Issue::from_file(&filename).unwrap();
         assert_eq!(issue.meta.title, "Maintain Work Environment");
         println!("{}", issue.text);
     }
