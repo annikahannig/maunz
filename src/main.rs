@@ -3,13 +3,13 @@
 use octocrab::{
     Octocrab,
     params,
-    models::issues::Issue,
+    models,
 };
 
 mod env;
+mod state;
 
-
-async fn fetch_issues() -> Result<(), octocrab::Error> {
+async fn fetch_issues() -> Result<Vec<models::issues::Issue>, octocrab::Error> {
     let octocrab = Octocrab::builder()
         .personal_token(env::github_token())
         .build()?;
@@ -22,13 +22,19 @@ async fn fetch_issues() -> Result<(), octocrab::Error> {
         .send()
         .await?;
 
+    let mut issues: Vec<models::issues::Issue> = Vec::new();
 
+    // Get from all pages
     loop {
         for issue in &page {
-            println!("{}", issue.title);
+            // Skip any issues that are PRs.
+            if issue.pull_request.is_some() {
+                continue;
+            }
+            issues.push(issue.clone());
         }
         page = match octocrab
-            .get_page::<Issue>(&page.next)
+            .get_page::<models::issues::Issue>(&page.next)
             .await?
         {
             Some(next_page) => next_page,
@@ -36,13 +42,22 @@ async fn fetch_issues() -> Result<(), octocrab::Error> {
         }
     }
 
-    Ok(())
+    Ok(issues)
 }
 
 
 #[tokio::main]
-async fn main() -> octocrab::Result<()> {
-    fetch_issues().await?;
+async fn main() -> Result<(), octocrab::Error> {
+    let issues = fetch_issues().await?;
+
+    for issue in issues {
+        println!("{}: {}, ({})", issue.number, issue.title, issue.state);
+        match issue.body_text {
+            Some(body) =>
+                println!("{}", body),
+            _ => ()
+        }
+    }
 
     Ok(())
 }
