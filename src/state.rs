@@ -4,18 +4,13 @@ use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
 
-
-#[derive(Serialize, Deserialize, Debug)]
-struct IssueState {
-    is_open: bool,
-    last_open: DateTime<Utc>,
-}
+use crate::issue;
 
 
 #[derive(Serialize, Deserialize, Debug)]
-struct State {
-    issues: HashMap<String, IssueState>,
-    last_run: DateTime<Utc>,
+pub struct State {
+    pub issues: HashMap<String, issue::State>,
+    pub last_run: DateTime<Utc>,
 }
 
 
@@ -24,12 +19,12 @@ mod tests {
     use std::collections::HashMap;
     use chrono::{Utc, TimeZone};
 
-    use crate::state::{IssueState, State};
+    use crate::state::{issue, State};
 
     #[test]
     fn serialize_state() {
         let mut issues = HashMap::new();
-        issues.insert("clean_room.md".to_owned(), IssueState{
+        issues.insert("clean_room.md".to_owned(), issue::State{
             is_open: false,
             last_open: Utc.timestamp(0, 0),
         });
