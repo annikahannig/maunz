@@ -114,4 +114,12 @@ mod tests {
         assert_eq!(issue.meta.title, "Maintain Work Environment");
         println!("{}", issue.text);
     }
+
+    #[test]
+    fn load_path() {
+        let issues = crate::issue::load_path(String::from("./example")).unwrap();
+        for (id, issue) in issues {
+            println!("ID: {}, Issue: {}", id, issue.meta.title); 
+        }
+    }
 }
