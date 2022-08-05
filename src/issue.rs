@@ -34,6 +34,7 @@ pub struct Issue {
     pub text: String,
 }
 
+// id_from_filename derives the issue ID from a filename
 fn id_from_filename(filename: &String) -> String {
     let path = path::Path::new(&filename);
     match path.file_name() {
@@ -44,6 +45,7 @@ fn id_from_filename(filename: &String) -> String {
 
 impl Issue {
 
+    // parse an issue from file content
     fn parse(content: String) -> Result<Issue, Box<dyn Error>> { 
         let parts: Vec<&str> = content.splitn(2, "---").collect();
         let meta = Meta::parse(parts[0])?;
@@ -56,14 +58,19 @@ impl Issue {
         Ok(issue)
     }
         
+    // from_file reads an issue file and parses it
     fn from_file(filename: &String) -> Result<Issue, Box<dyn Error>> {
         let content = fs::read_to_string(filename)?;
         Issue::parse(content)
     }
 }
 
+// A Repo contains a mapping of issue ids to
+// parsed issues
 type Repo = HashMap<String, Issue>;
 
+// load_path loads all issues from a given path
+// and returns an issue repo.
 pub fn load_path(path: String) -> Result<Repo, Box<dyn Error>> {
     let mut issues: Repo = HashMap::new();
     let paths = fs::read_dir(&path::Path::new(&path))?;
