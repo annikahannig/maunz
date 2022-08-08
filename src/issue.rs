@@ -4,14 +4,16 @@ use std::path;
 use std::error::Error;
 use std::collections::HashMap;
 
-use serde::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize, Deserializer};
 use serde_yaml;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Meta {
     pub title: String,
-    pub every: String,
+
+    #[serde(deserialize_with = "parse_duration")]
+    pub every: Duration,
 }
 
 impl Meta {
@@ -19,6 +21,24 @@ impl Meta {
     fn parse(content: &str) -> Result<Meta, serde_yaml::Error> {
         let meta = serde_yaml::from_str(&content)?;
         Ok(meta)
+    }
+}
+
+
+fn parse_duration<'de, D>(deserializer: D) -> Result<Duration, D::Error>
+  where D: Deserializer<'de> {
+    use serde::de::Error;
+
+    let data = String::deserialize(deserializer)?;
+    let len = data.len();
+    let value: i64 = (&data[..len-1]).parse().map_err(Error::custom)?;
+    let suffix = &data[len-1..];
+    
+    match suffix {
+        "d" => Ok(Duration::days(value)),
+        "w" => Ok(Duration::weeks(value)),
+        "m" => Ok(Duration::days(value * 30)), // align month??
+        _ => Err(Error::custom("invalid suffix, only d or w"))
     }
 }
 
@@ -88,6 +108,7 @@ pub fn load_path(path: String) -> Result<Repo, Box<dyn Error>> {
 #[cfg(test)]
 mod tests {
     use crate::issue::{Issue, Meta};
+    use chrono::Duration;
     
     #[test]
     fn parse_meta() {
@@ -97,7 +118,7 @@ mod tests {
         ";
         let meta = Meta::parse(data).unwrap(); 
         assert_eq!(meta.title, "yay!");
-        assert_eq!(meta.every, "10d");
+        assert_eq!(meta.every, Duration::days(10));
     }
 
     #[test]
