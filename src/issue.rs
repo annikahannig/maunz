@@ -14,6 +14,8 @@ pub struct Meta {
 
     #[serde(deserialize_with = "parse_duration")]
     pub every: Duration,
+
+    pub align: Option<bool>,
 }
 
 impl Meta {
@@ -44,6 +46,7 @@ fn parse_duration<'de, D>(deserializer: D) -> Result<Duration, D::Error>
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct State {
+    pub github_id: Option<u64>,
     pub is_open: bool,
     pub last_open: DateTime<Utc>,
 }
@@ -87,11 +90,11 @@ impl Issue {
 
 // A Repo contains a mapping of issue ids to
 // parsed issues
-type Repo = HashMap<String, Issue>;
+pub type Repo = HashMap<String, Issue>;
 
-// load_path loads all issues from a given path
+// from_path loads all issues from a given path
 // and returns an issue repo.
-pub fn load_path(path: String) -> Result<Repo, Box<dyn Error>> {
+pub fn from_path(path: String) -> Result<Repo, Box<dyn Error>> {
     let mut issues: Repo = HashMap::new();
     let paths = fs::read_dir(&path::Path::new(&path))?;
     
@@ -144,8 +147,8 @@ mod tests {
     }
 
     #[test]
-    fn load_path() {
-        let issues = crate::issue::load_path(String::from("./example")).unwrap();
+    fn from_path() {
+        let issues = crate::issue::from_path(String::from("./example")).unwrap();
         for (id, issue) in issues {
             println!("ID: {}, Issue: {}", id, issue.meta.title); 
         }
