@@ -223,18 +223,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22030e2c5a68ec659fde1e949a745124b48e6fa8b045b7ed5bd1fe4ccc5c4e5d"
 
 [[package]]
-name = "gnemnolf"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "octocrab",
- "serde",
- "serde_json",
- "serde_yaml",
- "tokio",
-]
-
-[[package]]
 name = "h2"
 version = "0.3.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -468,6 +456,18 @@ name = "matches"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3e378b66a060d48947b590737b30a1be76706c8dd7b8ba0f2fe3989c68a853f"
+
+[[package]]
+name = "maunz"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "octocrab",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tokio",
+]
 
 [[package]]
 name = "memchr"
