@@ -57,6 +57,7 @@ mod tests {
     fn serialize_state() {
         let mut issues = HashMap::new();
         issues.insert("clean_room.md".to_owned(), issue::State{
+            github_id: None,
             is_open: false,
             last_open: Utc.timestamp(0, 0),
         });
