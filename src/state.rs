@@ -17,6 +17,7 @@ pub struct State {
 }
 
 impl State {
+
     fn new() -> State {
         State{
             issues: HashMap::new(),
@@ -35,6 +36,17 @@ impl State {
         let out = fs::File::create(filename)?;
         serde_json::to_writer(out, self)?;
         Ok(())
+    }
+
+    // Add issue to state if not exist This is an idempotent
+    // operation.
+    pub fn track_issue(&mut self, issue_id: &str) -> &mut issue::State{
+        let state = issue::State{
+            github_id: None,
+            is_open: false,
+            last_open: None,
+        };
+        self.issues.entry(issue_id.to_owned()).or_insert(state)        
     }
 }
 
@@ -59,7 +71,7 @@ mod tests {
         issues.insert("clean_room.md".to_owned(), issue::State{
             github_id: None,
             is_open: false,
-            last_open: Utc.timestamp(0, 0),
+            last_open: Some(Utc::now()), 
         });
 
         let state = State{

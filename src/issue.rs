@@ -44,12 +44,22 @@ fn parse_duration<'de, D>(deserializer: D) -> Result<Duration, D::Error>
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct State {
     pub github_id: Option<u64>,
     pub is_open: bool,
-    pub last_open: DateTime<Utc>,
+    pub last_open: Option<DateTime<Utc>>,
 }
+
+impl State {
+    pub fn mark_open(&mut self, github_id: u64) {
+        self.github_id = Some(github_id);
+        self.is_open = true;
+        self.last_open = Some(Utc::now());
+    }
+}
+
+
 
 #[derive(Clone, Debug)]
 pub struct Issue {
@@ -110,7 +120,7 @@ pub fn from_path(path: String) -> Result<Repo, Box<dyn Error>> {
 
 #[cfg(test)]
 mod tests {
-    use crate::issue::{Issue, Meta};
+    use crate::issue::{self, Issue, Meta};
     use chrono::Duration;
     
     #[test]
@@ -148,7 +158,7 @@ mod tests {
 
     #[test]
     fn from_path() {
-        let issues = crate::issue::from_path(String::from("./example")).unwrap();
+        let issues = issue::from_path(String::from("./example")).unwrap();
         for (id, issue) in issues {
             println!("ID: {}, Issue: {}", id, issue.meta.title); 
         }
