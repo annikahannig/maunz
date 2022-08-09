@@ -41,12 +41,7 @@ impl State {
     // Add issue to state if not exist This is an idempotent
     // operation.
     pub fn track_issue(&mut self, issue_id: &str) -> &mut issue::State{
-        let state = issue::State{
-            github_id: None,
-            is_open: false,
-            last_open: None,
-        };
-        self.issues.entry(issue_id.to_owned()).or_insert(state)        
+        self.issues.entry(issue_id.to_owned()).or_default()        
     }
 }
 

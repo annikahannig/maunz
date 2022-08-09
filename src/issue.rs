@@ -44,7 +44,7 @@ fn parse_duration<'de, D>(deserializer: D) -> Result<Duration, D::Error>
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct State {
     pub github_id: Option<u64>,
     pub is_open: bool,
