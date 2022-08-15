@@ -1,11 +1,7 @@
-
-
 mod env;
+mod github;
 mod issue;
 mod state;
-mod github;
-
-
 
 #[tokio::main]
 async fn main() -> Result<(), octocrab::Error> {
@@ -20,23 +16,26 @@ async fn main() -> Result<(), octocrab::Error> {
 
     // Sync state with repo
     for (id, issue) in repo {
-        let mut issue_state = state.track_issue(&id);
+        let issue_state = state.track_issue(&id);
         match issue_state.github_id {
             None => {
-                // issue_state.github_id = gh.create_issue(&issue).await?;
                 let github_issue = gh.create_issue(&issue).await?;
-                issue_state.mark_open(github_issue.id.into_inner());
-            },
+                issue_state.assign_github_issue(&github_issue);
+                issue_state.mark_open();
+            }
             Some(id) => {
                 let github_issue = gh.fetch_issue(id).await?;
                 if github_issue.state == String::from("open") {
-                    issue_state.is_open = true
+                    issue_state.mark_open()
                 } else {
-                    issue_state.is_open = false
+                    issue_state.mark_closed()
                 }
 
-                println!("check state and check if needs reopen{}", id)
-            },
+                if issue.needs_open(issue_state) {
+                    gh.reopen_issue(id).await?;
+                    issue_state.mark_open();
+                }
+            }
         }
     }
 

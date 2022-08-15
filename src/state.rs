@@ -1,14 +1,12 @@
-
-use std::error::Error;
 use std::collections::HashMap;
+use std::error::Error;
 use std::fs;
 
-use serde_json;
-use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json;
 
 use crate::issue;
-
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct State {
@@ -17,9 +15,8 @@ pub struct State {
 }
 
 impl State {
-
     fn new() -> State {
-        State{
+        State {
             issues: HashMap::new(),
             last_run: Utc::now(),
         }
@@ -40,8 +37,8 @@ impl State {
 
     // Add issue to state if not exist This is an idempotent
     // operation.
-    pub fn track_issue(&mut self, issue_id: &str) -> &mut issue::State{
-        self.issues.entry(issue_id.to_owned()).or_default()        
+    pub fn track_issue(&mut self, issue_id: &str) -> &mut issue::State {
+        self.issues.entry(issue_id.to_owned()).or_default()
     }
 }
 
@@ -49,27 +46,30 @@ pub fn from_file(filename: String) -> Result<State, Box<dyn Error>> {
     let file = fs::read_to_string(filename);
     match file {
         Ok(data) => State::parse(&data),
-        _ => Ok(State::new())
+        _ => Ok(State::new()),
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use chrono::Utc;
     use std::collections::HashMap;
-    use chrono::{Utc, TimeZone};
 
     use crate::state::{issue, State};
 
     #[test]
     fn serialize_state() {
         let mut issues = HashMap::new();
-        issues.insert("clean_room.md".to_owned(), issue::State{
-            github_id: None,
-            is_open: false,
-            last_open: Some(Utc::now()), 
-        });
+        issues.insert(
+            "clean_room.md".to_owned(),
+            issue::State {
+                github_id: None,
+                last_open: Some(Utc::now()),
+                last_close: None,
+            },
+        );
 
-        let state = State{
+        let state = State {
             last_run: Utc::now(),
             issues: issues,
         };
@@ -78,4 +78,3 @@ mod tests {
         println!("JSON: {}", json)
     }
 }
-

@@ -1,12 +1,18 @@
-
+use std::collections::HashMap;
+use std::error::Error;
 use std::fs;
 use std::path;
-use std::error::Error;
-use std::collections::HashMap;
 
-use serde::{Serialize, Deserialize, Deserializer};
+use chrono::{DateTime, Datelike, Duration, Utc};
+use octocrab::models;
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_yaml;
-use chrono::{DateTime, Duration, Utc};
+
+#[derive(PartialEq, Debug)]
+pub enum Status {
+    Open,
+    Closed,
+}
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Meta {
@@ -24,42 +30,78 @@ impl Meta {
         let meta = serde_yaml::from_str(&content)?;
         Ok(meta)
     }
+
+    // calculate next open
+    fn next_open(&self, from: &DateTime<Utc>) -> DateTime<Utc> {
+        let next = from.clone() + self.every;
+        if self.align.unwrap_or(false) {
+            match next.with_day(1) {
+                Some(v) => v,
+                None => next,
+            }
+        } else {
+            next
+        }
+    }
 }
 
-
 fn parse_duration<'de, D>(deserializer: D) -> Result<Duration, D::Error>
-  where D: Deserializer<'de> {
+where
+    D: Deserializer<'de>,
+{
     use serde::de::Error;
 
     let data = String::deserialize(deserializer)?;
     let len = data.len();
-    let value: i64 = (&data[..len-1]).parse().map_err(Error::custom)?;
-    let suffix = &data[len-1..];
-    
+    let value: i64 = (&data[..len - 1]).parse().map_err(Error::custom)?;
+    let suffix = &data[len - 1..];
+
     match suffix {
         "d" => Ok(Duration::days(value)),
         "w" => Ok(Duration::weeks(value)),
-        "m" => Ok(Duration::days(value * 30)), // align month??
-        _ => Err(Error::custom("invalid suffix, only d or w"))
+        "m" => Ok(Duration::days(value * 31)), // align month??
+        _ => Err(Error::custom("invalid suffix, only d or w")),
     }
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct State {
     pub github_id: Option<u64>,
-    pub is_open: bool,
     pub last_open: Option<DateTime<Utc>>,
+    pub last_close: Option<DateTime<Utc>>,
 }
 
 impl State {
-    pub fn mark_open(&mut self, github_id: u64) {
-        self.github_id = Some(github_id);
-        self.is_open = true;
-        self.last_open = Some(Utc::now());
+    pub fn status(&mut self) -> Status {
+        if self.last_close < self.last_open {
+            Status::Open
+        } else {
+            Status::Closed
+        }
+    }
+
+    pub fn mark_open(&mut self) {
+        match self.status() {
+            Status::Closed => {
+                self.last_open = Some(Utc::now());
+            }
+            _ => {}
+        }
+    }
+
+    pub fn mark_closed(&mut self) {
+        match self.status() {
+            Status::Open => {
+                self.last_close = Some(Utc::now());
+            }
+            _ => {}
+        }
+    }
+
+    pub fn assign_github_issue(&mut self, issue: &models::issues::Issue) {
+        self.github_id = Some(issue.id.into_inner());
     }
 }
-
-
 
 #[derive(Clone, Debug)]
 pub struct Issue {
@@ -72,29 +114,39 @@ fn id_from_filename(filename: &String) -> String {
     let path = path::Path::new(&filename);
     match path.file_name() {
         Some(name) => name.to_str().unwrap().to_owned(),
-        None => "no_id".to_owned()
+        None => "no_id".to_owned(),
     }
 }
 
 impl Issue {
-
     // parse an issue from file content
-    fn parse(content: String) -> Result<Issue, Box<dyn Error>> { 
+    fn parse(content: String) -> Result<Issue, Box<dyn Error>> {
         let parts: Vec<&str> = content.splitn(2, "---").collect();
         let meta = Meta::parse(parts[0])?;
 
-        let issue = Issue{
+        let issue = Issue {
             meta: meta,
             text: parts[1].to_owned(),
         };
 
         Ok(issue)
     }
-        
+
     // from_file reads an issue file and parses it
     fn from_file(filename: &String) -> Result<Issue, Box<dyn Error>> {
         let content = fs::read_to_string(filename)?;
         Issue::parse(content)
+    }
+
+    // needs open checks if the last open was before
+    // the duration window. When aligned we use the first of
+    // the month as the last open.
+    pub fn needs_open(&self, state: &State) -> bool {
+        if state.last_close.is_none() {
+            return false;
+        }
+        let next = self.meta.next_open(&state.last_close.unwrap());
+        Utc::now() > next
     }
 }
 
@@ -107,7 +159,7 @@ pub type Repo = HashMap<String, Issue>;
 pub fn from_path(path: String) -> Result<Repo, Box<dyn Error>> {
     let mut issues: Repo = HashMap::new();
     let paths = fs::read_dir(&path::Path::new(&path))?;
-    
+
     for entry in paths {
         let path = entry.unwrap().path().to_str().unwrap().to_owned();
         let issue = Issue::from_file(&path)?;
@@ -120,29 +172,53 @@ pub fn from_path(path: String) -> Result<Repo, Box<dyn Error>> {
 
 #[cfg(test)]
 mod tests {
-    use crate::issue::{self, Issue, Meta};
-    use chrono::Duration;
-    
+    use crate::issue::{self, Issue, Meta, State, Status};
+    use chrono::{Duration, TimeZone, Utc};
+
     #[test]
     fn parse_meta() {
         let data = "
             title: yay!
             every: 10d
         ";
-        let meta = Meta::parse(data).unwrap(); 
+        let meta = Meta::parse(data).unwrap();
         assert_eq!(meta.title, "yay!");
         assert_eq!(meta.every, Duration::days(10));
     }
 
     #[test]
+    fn next_open_unaligned() {
+        let meta = Meta {
+            title: "".to_string(),
+            align: None,
+            every: Duration::days(10),
+        };
+        let t0 = Utc.ymd(2000, 1, 12).and_hms(0, 1, 1);
+        assert_eq!(meta.next_open(&t0), Utc.ymd(2000, 1, 22).and_hms(0, 1, 1));
+    }
+
+    #[test]
+    fn next_open_aligned() {
+        let meta = Meta {
+            title: "".to_string(),
+            align: Some(true),
+            every: Duration::days(31),
+        };
+        let t0 = Utc.ymd(2000, 1, 1).and_hms(0, 1, 1);
+        assert_eq!(meta.next_open(&t0), Utc.ymd(2000, 2, 1).and_hms(0, 1, 1));
+    }
+
+    #[test]
     fn parse_issue() {
-        let data = String::from("
+        let data = String::from(
+            "
             title: test title
             every: 10d
             ---
             - [ ] do things
             - [ ] do more
-        ");
+        ",
+        );
         let issue = Issue::parse(data).unwrap();
         assert_eq!(issue.meta.title, "test title");
         println!("{}", issue.text);
@@ -160,7 +236,26 @@ mod tests {
     fn from_path() {
         let issues = issue::from_path(String::from("./example")).unwrap();
         for (id, issue) in issues {
-            println!("ID: {}, Issue: {}", id, issue.meta.title); 
+            println!("ID: {}, Issue: {}", id, issue.meta.title);
         }
+    }
+
+    #[test]
+    fn status() {
+        let mut state = State {
+            last_open: None,
+            last_close: None,
+            github_id: None,
+        };
+        assert_eq!(state.status(), Status::Closed);
+
+        state.last_open = Some(Utc::now());
+        assert_eq!(state.status(), Status::Open);
+
+        state.last_close = Some(Utc::now() - Duration::days(5));
+        assert_eq!(state.status(), Status::Open);
+
+        state.last_open = Some(Utc::now() - Duration::days(10));
+        assert_eq!(state.status(), Status::Closed);
     }
 }
