@@ -81,20 +81,14 @@ impl State {
     }
 
     pub fn mark_open(&mut self) {
-        match self.status() {
-            Status::Closed => {
-                self.last_open = Some(Utc::now());
-            }
-            _ => {}
+        if self.status() == Status::Closed {
+            self.last_open = Some(Utc::now());
         }
     }
 
     pub fn mark_closed(&mut self) {
-        match self.status() {
-            Status::Open => {
-                self.last_close = Some(Utc::now());
-            }
-            _ => {}
+        if self.status() == Status::Open {
+            self.last_close = Some(Utc::now());
         }
     }
 
