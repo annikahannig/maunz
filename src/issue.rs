@@ -1,8 +1,8 @@
 use std::collections::HashMap;
-use std::error::Error;
 use std::fs;
 use std::path;
 
+use anyhow::Result;
 use chrono::{DateTime, Datelike, Duration, Utc};
 use octocrab::models;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -26,7 +26,7 @@ pub struct Meta {
 
 impl Meta {
     // parse issue meta
-    fn parse(content: &str) -> Result<Meta, serde_yaml::Error> {
+    fn parse(content: &str) -> Result<Meta> {
         let meta = serde_yaml::from_str(&content)?;
         Ok(meta)
     }
@@ -120,7 +120,7 @@ fn id_from_filename(filename: &String) -> String {
 
 impl Issue {
     // parse an issue from file content
-    fn parse(content: String) -> Result<Issue, Box<dyn Error>> {
+    fn parse(content: String) -> Result<Issue> {
         let parts: Vec<&str> = content.splitn(2, "---").collect();
         let meta = Meta::parse(parts[0])?;
 
@@ -133,7 +133,7 @@ impl Issue {
     }
 
     // from_file reads an issue file and parses it
-    fn from_file(filename: &String) -> Result<Issue, Box<dyn Error>> {
+    fn from_file(filename: &String) -> Result<Issue> {
         let content = fs::read_to_string(filename)?;
         Issue::parse(content)
     }
@@ -156,7 +156,7 @@ pub type Repo = HashMap<String, Issue>;
 
 // from_path loads all issues from a given path
 // and returns an issue repo.
-pub fn from_path(path: String) -> Result<Repo, Box<dyn Error>> {
+pub fn from_path(path: String) -> Result<Repo> {
     let mut issues: Repo = HashMap::new();
     let paths = fs::read_dir(&path::Path::new(&path))?;
 

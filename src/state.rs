@@ -1,5 +1,6 @@
+use anyhow::Result;
+
 use std::collections::HashMap;
-use std::error::Error;
 use std::fs;
 
 use chrono::{DateTime, Utc};
@@ -23,13 +24,13 @@ impl State {
     }
 
     // Decode state saved as json
-    fn parse(content: &String) -> Result<State, Box<dyn Error>> {
+    fn parse(content: &String) -> Result<State> {
         let state = serde_json::from_str(content)?;
         Ok(state)
     }
 
     // Write json representation to file
-    pub fn save(&self, filename: String) -> Result<(), Box<dyn Error>> {
+    pub fn save(&self, filename: &str) -> Result<()> {
         let out = fs::File::create(filename)?;
         serde_json::to_writer(out, self)?;
         Ok(())
@@ -42,7 +43,7 @@ impl State {
     }
 }
 
-pub fn from_file(filename: String) -> Result<State, Box<dyn Error>> {
+pub fn from_file(filename: &str) -> Result<State> {
     let file = fs::read_to_string(filename);
     match file {
         Ok(data) => State::parse(&data),

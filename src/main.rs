@@ -8,23 +8,16 @@ mod state;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let state_file = env::state_file()?;
+    let mut state = state::from_file(&state_file)?;
+    let issue_repo = issue::from_path(env::issues_path()?)?;
     let gh = github::Github::new(
         env::github_token()?,
         env::github_repo()?,
     );
-    Ok(())
-}
-
-
-/*
-#[tokio::main]
-async fn main() -> Result<(), octocrab::Error> {
-    let mut state = state::from_file(env::state_file()).unwrap();
-    let repo = issue::from_path(env::issues_path()).unwrap();
-
 
     // Sync state with repo
-    for (id, issue) in repo {
+    for (id, issue) in issue_repo {
         let issue_state = state.track_issue(&id);
         match issue_state.github_id {
             None => {
@@ -49,8 +42,8 @@ async fn main() -> Result<(), octocrab::Error> {
     }
 
     // Write state
-    state.save(env::state_file()).unwrap();
+    state.save(&state_file)?;
 
     Ok(())
 }
-*/
+
