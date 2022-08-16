@@ -92,8 +92,12 @@ impl State {
         }
     }
 
-    pub fn assign_github_issue(&mut self, issue: &models::issues::Issue) {
-        self.github_id = Some(issue.id.into_inner());
+    pub fn assign_github_issue(
+        &mut self,
+        issue: &models::issues::Issue,
+    ) -> Result<()> {
+        self.github_id = Some(u64::try_from(issue.number)?);
+        Ok(())
     }
 }
 

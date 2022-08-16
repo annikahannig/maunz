@@ -22,7 +22,7 @@ async fn main() -> Result<()> {
         match issue_state.github_id {
             None => {
                 let github_issue = gh.create_issue(&issue).await?;
-                issue_state.assign_github_issue(&github_issue);
+                issue_state.assign_github_issue(&github_issue)?;
                 issue_state.mark_open();
             }
             Some(id) => {
