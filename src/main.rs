@@ -1,18 +1,27 @@
+use anyhow::Result;
+
 mod env;
 mod github;
 mod issue;
 mod state;
 
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let gh = github::Github::new(
+        env::github_token()?,
+        env::github_repo()?,
+    );
+    Ok(())
+}
+
+
+/*
 #[tokio::main]
 async fn main() -> Result<(), octocrab::Error> {
     let mut state = state::from_file(env::state_file()).unwrap();
     let repo = issue::from_path(env::issues_path()).unwrap();
 
-    let gh = github::Github::new(
-        env::github_token(),
-        String::from("annikahannig"),
-        String::from("life"),
-    );
 
     // Sync state with repo
     for (id, issue) in repo {
@@ -44,3 +53,4 @@ async fn main() -> Result<(), octocrab::Error> {
 
     Ok(())
 }
+*/
